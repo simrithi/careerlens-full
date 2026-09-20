@@ -1,0 +1,405 @@
+openapi: 3.0.3
+info:
+  title: CareerLens API
+  version: 0.1.0
+  description: >
+    Contract for the real backend behind the CareerLens POC. See docs/api-contract.md
+    for rationale, the deterministic-vs-Gemini split, and open questions.
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com
+    variables:
+      apiId: { default: replace-me }
+      region: { default: ap-south-1 }
+security:
+  - cognitoJwt: []
+components:
+  securitySchemes:
+    cognitoJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+    Skill:
+      type: object
+      properties:
+        name: { type: string }
+        level: { type: integer, minimum: 0, maximum: 100 }
+        verified: { type: boolean }
+    Application:
+      type: object
+      properties:
+        id: { type: string }
+        company: { type: string }
+        role: { type: string }
+        source: { type: string, enum: [LinkedIn, Naukri, Foundit, Internshala, Company site, Referral, Other] }
+        status: { type: string, enum: [APPLIED, SCREENING, INTERVIEW, OFFER, REJECTED] }
+        date: { type: string, format: date }
+        interviewDate: { type: string, format: date, nullable: true }
+        jobUrl: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        reason: { type: string, nullable: true }
+        sourceEmailId: { type: string, nullable: true }
+    Milestone:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        type: { type: string, enum: [learn, build, certify, experience, practice, apply] }
+        hours: { type: integer }
+        due: { type: string, format: date }
+        done: { type: boolean }
+        doneAt: { type: string, format: date, nullable: true }
+        resourceLink: { type: string, nullable: true }
+    Bundle:
+      description: Full per-user record, returned only by GET /me/bundle.
+      type: object
+
+paths:
+  /me/bundle:
+    get:
+      summary: Full user record (hydration on login/refresh only)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Bundle' } } } }
+
+  /me/notifications/read:
+    patch:
+      summary: Mark all notifications read
+      responses:
+        '200': { description: Updated notifications slice }
+
+  /profile:
+    patch:
+      summary: Update top-level profile fields
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        '200': { description: Updated profile slice }
+
+  /profile/{section}:
+    parameters:
+      - name: section
+        in: path
+        required: true
+        schema: { type: string, enum: [education, experience, certifications, projects] }
+    post:
+      summary: Add an item to a profile section
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        '200': { description: Updated section }
+
+  /profile/{section}/{id}:
+    parameters:
+      - name: section
+        in: path
+        required: true
+        schema: { type: string, enum: [education, experience, certifications, projects] }
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      summary: Update an item in a profile section
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        '200': { description: Updated section }
+    delete:
+      summary: Remove an item from a profile section
+      responses:
+        '200': { description: Updated section }
+
+  /profile/skills/{name}:
+    parameters:
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    put:
+      summary: Upsert a skill
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/Skill' } } }
+      responses:
+        '200': { description: Updated skills list }
+    delete:
+      summary: Remove a skill
+      responses:
+        '200': { description: Updated skills list }
+
+  /profile/external/{platform}:
+    parameters:
+      - name: platform
+        in: path
+        required: true
+        schema: { type: string, enum: [leetcode, github, codeforces, hackerrank, linkedin] }
+    put:
+      summary: Update external coding profile stats (manual entry or importer-populated)
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        '200': { description: Updated external stats }
+
+  /resume/upload-url:
+    post:
+      summary: Get an S3 presigned PUT URL for resume upload
+      responses:
+        '200':
+          description: Presigned URL; the S3-triggered Lambda runs Textract + AI extraction async
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl: { type: string }
+                  fileKey: { type: string }
+
+  /roadmap/milestones/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      summary: Toggle a milestone done/not done
+      responses:
+        '200': { description: Updated roadmap slice }
+
+  /roadmap/phases/{phaseId}/milestones:
+    parameters:
+      - name: phaseId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Add a milestone to a phase
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/Milestone' } } }
+      responses:
+        '200': { description: Updated roadmap slice }
+
+  /roadmap/replan:
+    post:
+      summary: Re-plan overdue milestones. Dates/pace are deterministic; lastReplan.aiNote is a best-effort Gemini rationale (omitted if the AI call fails).
+      responses:
+        '200': { description: Updated roadmap + lastReplan slice }
+
+  /roadmap/goal:
+    patch:
+      summary: Update the roadmap goal
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        '200': { description: Updated roadmap.goal slice }
+
+  /roadmap/questions/{qid}/toggle:
+    parameters:
+      - name: qid
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      summary: Toggle a practice question solved
+      responses:
+        '200': { description: Updated solvedQuestions slice }
+
+  /applications:
+    post:
+      summary: Add one application
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/Application' } } }
+      responses:
+        '200': { description: Updated applications slice }
+
+  /applications/bulk:
+    post:
+      summary: Add up to 50 applications at once
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items: { type: array, items: { $ref: '#/components/schemas/Application' } }
+      responses:
+        '200': { description: Updated applications slice }
+
+  # /applications/extract, /applications/stats, /applications/insights: not built yet — removed
+  # from this spec rather than listed as callable paths. See docs/api-contract.md's Applications
+  # table (marked *(new)*) for what they'd do once built; Applications.jsx currently computes
+  # stats/insights entirely client-side via applicationInsights() in engine.js.
+
+  /applications/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      summary: Move an application to a new status
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { status: { type: string } }
+      responses:
+        '200': { description: Updated applications slice }
+    delete:
+      summary: Remove an application
+      responses:
+        '200': { description: Updated applications slice }
+
+  /interviews:
+    post:
+      summary: Save a mock interview session summary
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        '200': { description: Updated interviews slice }
+
+  /interview/score-answer:
+    post:
+      summary: Score an interview answer against a rubric (Gemini). Not persisted; frontend falls back to a local heuristic on failure.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question, answer]
+              properties:
+                question: { type: string }
+                answer: { type: string }
+                roleTitle: { type: string }
+      responses:
+        '200': { description: OK }
+
+  /resume/diagnose:
+    post:
+      summary: Personalized "why might I get rejected" reasons (Gemini). ATS checklist/score stay client-side deterministic.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roleTitle]
+              properties:
+                roleTitle: { type: string }
+                atsScore: { type: integer }
+                matchScore: { type: integer }
+                missingSkills: { type: array, items: { type: object } }
+                projects: { type: array, items: { type: object } }
+                experienceCount: { type: integer }
+                leetcodeSolved: { type: integer }
+      responses:
+        '200': { description: OK }
+
+  /market/jobs:
+    get: { summary: List openings, security: [], responses: { '200': { description: OK } } }
+  /market/layoffs:
+    get: { summary: Layoff data, security: [], responses: { '200': { description: OK } } }
+  /market/news:
+    get: { summary: Market news, security: [], responses: { '200': { description: OK } } }
+  /market/placements:
+    get: { summary: 'Campus placement data — client-side static dataset only, no live endpoint (see api-contract.md)', security: [], responses: { '200': { description: OK } } }
+  /market/hiring-trend:
+    get: { summary: 'Real hiring-trend index, built from live Adzuna result counts and accumulated one snapshot per month', responses: { '200': { description: OK } } }
+  /market/gigs:
+    get: { summary: List open, company-posted gigs (candidate-safe shape), responses: { '200': { description: OK } } }
+    post:
+      summary: Post a gig (company group only)
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        '200': { description: Updated open-gigs list }
+
+  /market/gigs/{id}/apply:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Apply to a gig (any non-company account)
+      responses:
+        '200': { description: That gig's candidate-safe shape }
+
+  /jobs/{id}/save:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Toggle a saved job
+      responses:
+        '200': { description: Updated savedJobs slice }
+
+  /features/{id}/vote:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Toggle a vote on an Innovation Lab idea
+      responses:
+        '200': { description: Updated votes slice }
+
+  /gigs/{id}/accept:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Accept a gig, adding an Experience milestone to the roadmap
+      responses:
+        '200': { description: Updated roadmap slice }
+
+  /recruiter/candidates:
+    get:
+      summary: Ranked candidates for a role, blind-screened until shortlisted (server-enforced)
+      parameters:
+        - name: roleId
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+
+  /recruiter/shortlist/{candidateId}:
+    parameters:
+      - name: candidateId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Toggle shortlist status for a candidate
+      responses:
+        '200': { description: Updated shortlist slice }
+
+  /recruiter/roles:
+    post:
+      summary: Add a job posting
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        '200': { description: Updated company.roles slice }
+
+  /recruiter/gigs/{id}/applicants:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: List applicants for a gig you posted (company group only, own gigs only)
+      responses:
+        '200': { description: OK }
