@@ -20,29 +20,31 @@ export default function ResumeLab() {
   const [company, setCompany] = useState(COMPANY_TYPES[0].id)
   const timer = useRef(null)
 
-  const finishScan = async () => {
-    const ats = atsAnalysis(p, jd)
-    const diag = await resumeApi.rejectionDiagnosis(p, roleId, ats)
-    setResult({ ats, diag })
-    setPhase('done')
-  }
+  // Minimum time the "scanning" steps stay visible, so a near-instant mock-mode result doesn't
+  // just flash by — but this is a floor, not a fixed duration: the real diagnosis call and this
+  // timer run concurrently, and completion waits on whichever finishes last. A slow real API call
+  // (Gemini under free-tier throttling, network latency) genuinely extends the wait instead of
+  // being tacked on after a fake animation that already ran independently of the real work.
+  const MIN_SCAN_MS = 2600
 
   const scan = () => {
     setPhase('scanning'); setStep(0)
-    let i = 0
     clearInterval(timer.current)
+    const ats = atsAnalysis(p, jd)
+    const work = resumeApi.rejectionDiagnosis(p, roleId, ats)
+    const minWait = new Promise((r) => setTimeout(r, MIN_SCAN_MS))
     timer.current = setInterval(() => {
-      i += 1
-      if (i >= STEPS.length) {
-        clearInterval(timer.current)
-        finishScan()
-      } else setStep(i)
-    }, 520)
+      setStep((s) => (s < STEPS.length - 1 ? s + 1 : s))
+    }, MIN_SCAN_MS / (STEPS.length - 1))
+    Promise.all([work, minWait]).then(([diag]) => {
+      clearInterval(timer.current)
+      setStep(STEPS.length)
+      setResult({ ats, diag })
+      setPhase('done')
+    })
   }
 
-  // Only auto-run on load if a resume was actually uploaded — otherwise this would analyze an
-  // empty/default profile and present it as a real scan result (see conversation notes).
-  useEffect(() => { if (p.resume) scan(); return () => clearInterval(timer.current) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => clearInterval(timer.current), [])
 
   const ct = COMPANY_TYPES.find((c) => c.id === company)
   const aligned = useMemo(
@@ -76,8 +78,12 @@ export default function ResumeLab() {
               <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <Card className="stack gap8" style={{ alignItems: 'center', textAlign: 'center', padding: '48px 24px' }}>
                   <Upload size={32} className="muted" />
-                  <h3>No resume yet</h3>
-                  <p className="muted small">Upload a resume on the left, then run a scan to see your ATS readiness, fit score, and likely rejection reasons.</p>
+                  <h3>{p.resume ? 'Ready to scan' : 'No resume yet'}</h3>
+                  <p className="muted small">
+                    {p.resume
+                      ? 'Resume on file — click "Run ATS scan" to see your ATS readiness, fit score, and likely rejection reasons.'
+                      : 'Upload a resume on the left, then run a scan to see your ATS readiness, fit score, and likely rejection reasons.'}
+                  </p>
                 </Card>
               </motion.div>
             )}

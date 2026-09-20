@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, GraduationCap, Briefcase, Building2, Lock, Mail } from 'lucide-react'
 import { useAuth, useToast } from '../context/AppContext'
-import { Button, Counter, Field } from '../components/ui'
+import { Button, Counter, Field, useAsync } from '../components/ui'
 import { DEMO_ACCOUNTS } from '../data/seed'
 import { INDIA_GAP } from '../data/roles'
 import { USE_MOCK } from '../api/http'
+import { marketApi } from '../api'
 
 // Real-mode judge/demo accounts — pre-provisioned directly in Cognito (not seed data), with
 // USER_PASSWORD_AUTH enabled only for these two (see careerlens-backend/lib/auth-stack.ts), so a
@@ -89,6 +90,10 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(null)
+  // Public endpoint, no auth needed (see docs/api-contract.md's "GET /market/*: public data").
+  // Real mode: genuinely live Adzuna-sourced listings. Mock mode: the same local sample data
+  // every other page uses — labeled accordingly below, never claimed as live when it isn't.
+  const { data: liveJobs } = useAsync(() => marketApi.getJobs(), [])
 
   const go = async (e, p, key = 'form') => {
     setBusy(key)
@@ -135,6 +140,12 @@ export default function Login() {
             <motion.div key={t} initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.6 + i * 0.1 }}>✓ {t}</motion.div>
           ))}
         </div>
+        {liveJobs && liveJobs.length > 0 && (
+          <motion.div className="login-live" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.1 }}>
+            <span className="login-live-dot" />
+            <span><b>{liveJobs.length}</b> {USE_MOCK ? 'sample openings loaded in this demo' : 'live openings tracked from the Job Market feed right now'}</span>
+          </motion.div>
+        )}
       </div>
 
       <div className="login-panel">

@@ -29,26 +29,74 @@ const COMPANY_NAV = [
   { to: '/lab', label: 'Innovation Lab', icon: FlaskConical },
 ]
 
+// Persona guides (mock demo accounts) cover every page in their nav, in nav order, so nothing in
+// the product is left unexplained. Role-based fallbacks (student/company) cover the same ground
+// with generic copy, for any account with no persona entry — real Cognito accounts, including the
+// one-click judge demo accounts, whose user.id is a Cognito sub and never matches ananya/vikram/
+// novapixel (see Layout()'s lookup below).
 const GUIDE = {
-  ananya: [
-    ['Dashboard', '/dashboard', 'Readiness score, the 10-lakh-vs-1-lakh reality strip and next best actions.'],
-    ['Roadmap', '/roadmap', 'Android at Google in 8 months. Tick milestones and watch the pace badge change.'],
-    ['Resume Lab', '/resume', 'ATS readiness, rejection reasons and project-to-company alignment (her Img2Asset project scores high for a game studio).'],
-    ['Applications', '/applications', 'Drag cards, then press "Simulate incoming email" to see auto-sorting.'],
-    ['Innovation Lab', '/lab', 'Pivot Finder, Reality Gap Explorer and Micro-Gigs that feed the roadmap.'],
-  ],
-  vikram: [
-    ['Dashboard', '/dashboard', 'Experienced user pivoting after a layoff. Compare with Ananya.'],
-    ['Roadmap', '/roadmap', 'He is BEHIND schedule. Press "Re-plan" to see the AI adjust dates.'],
-    ['Job Market', '/market', 'Layoffs, hiring trends and news for his former sector.'],
-    ['Innovation Lab', '/lab', 'Layoff & Automation Shield shows resilient roles to move into.'],
-  ],
-  novapixel: [
-    ['Overview', '/company', 'Hiring funnel and time-to-shortlist KPIs.'],
-    ['Talent Match', '/talent', 'Blind screening ON. Ananya ranks high because her Img2Asset project fits the Technical Artist role.'],
-    ['Job Postings', '/postings', 'Post a role and see skills auto-suggested.'],
-    ['Innovation Lab', '/lab', 'Employer Skill Challenges and Campus Bridge concepts.'],
-  ],
+  ananya: {
+    flow: 'End to end: check the Dashboard for her readiness score, fill in Profile (already has the Img2Asset project), see how she matches Android Engineer on Job Fit, run an ATS scan on Resume Lab, tick a Roadmap milestone, simulate an inbox email on Applications, practice one Mock Interview question, browse real Job Market listings, then see how Innovation Lab\'s Pivot Finder and Micro-Gigs feed back into the roadmap.',
+    steps: [
+      ['Dashboard', '/dashboard', 'Readiness score, the 10-lakh-vs-1-lakh reality strip and next best actions.'],
+      ['Profile', '/profile', 'Skills, education, projects (including Img2Asset) and verified external stats (LeetCode/GitHub/Codeforces).'],
+      ['Job Fit', '/fit', 'Skill radar against Android Engineer, best-fit role ranking, and real job listings matching that role.'],
+      ['Resume Lab', '/resume', 'ATS readiness, rejection reasons and project-to-company alignment (her Img2Asset project scores high for a game studio).'],
+      ['Roadmap', '/roadmap', 'Android at Google in 8 months. Tick milestones and watch the pace badge change.'],
+      ['Applications', '/applications', 'Drag cards, then press "Simulate incoming email" to see auto-sorting.'],
+      ['Mock Interview', '/interview', 'Live rubric-scored practice answers, judged the same way a real interviewer would score depth and structure.'],
+      ['Job Market', '/market', 'Real openings, hiring trends and news for her target sector.'],
+      ['Innovation Lab', '/lab', 'Pivot Finder, Reality Gap Explorer and Micro-Gigs that feed the roadmap.'],
+    ],
+  },
+  vikram: {
+    flow: 'End to end: start on the Dashboard and compare his readiness with Ananya\'s (he\'s behind), check Profile for his Zentra Systems background, see how far the pivot to Cloud/DevOps has to go on Job Fit, run Resume Lab against the *new* target, press "Re-plan" on the Roadmap and watch the AI push overdue dates, track his post-layoff search on Applications, practice Mock Interview for the pivot role, check layoffs/hiring trends for his old sector on Job Market, then see the Layoff & Automation Shield on Innovation Lab.',
+    steps: [
+      ['Dashboard', '/dashboard', 'Experienced user pivoting after a layoff. Compare his readiness with Ananya\'s.'],
+      ['Profile', '/profile', 'Experience at Zentra Systems, plus external stats he\'s carrying into the pivot.'],
+      ['Job Fit', '/fit', 'Skill radar against his new Cloud/DevOps target, and how far the pivot still has to go.'],
+      ['Resume Lab', '/resume', 'ATS readiness and rejection reasons for the *new* target role, not his old one.'],
+      ['Roadmap', '/roadmap', 'He is BEHIND schedule. Press "Re-plan" to see the AI adjust dates.'],
+      ['Applications', '/applications', 'His post-layoff job search, tracked the same way as any other candidate\'s.'],
+      ['Mock Interview', '/interview', 'Practice for the pivot role, not the one he was laid off from.'],
+      ['Job Market', '/market', 'Layoffs, hiring trends and news for his former sector.'],
+      ['Innovation Lab', '/lab', 'Layoff & Automation Shield shows resilient roles to move into.'],
+    ],
+  },
+  novapixel: {
+    flow: 'End to end: check Overview for the hiring funnel and time-to-shortlist KPIs, post a role on Job Postings and watch skills auto-suggest, open Talent Match with blind screening on so candidates rank by skill and project fit until you shortlist one and identity reveals, check Job Market for the same view candidates see, then browse Innovation Lab\'s employer-side concepts.',
+    steps: [
+      ['Overview', '/company', 'Hiring funnel and time-to-shortlist KPIs.'],
+      ['Talent Match', '/talent', 'Blind screening ON. Ananya ranks high because her Img2Asset project fits the Technical Artist role.'],
+      ['Job Postings', '/postings', 'Post a role and see skills auto-suggested, then browse company-posted micro-gigs below it.'],
+      ['Job Market', '/market', 'The same openings/trends view candidates see, for competitive awareness.'],
+      ['Innovation Lab', '/lab', 'Employer Skill Challenges and Campus Bridge concepts.'],
+    ],
+  },
+  student: {
+    flow: 'End to end: check the Dashboard for a readiness score, fill in Profile, see how you match a target role on Job Fit, run an ATS scan on Resume Lab, follow the Roadmap and tick milestones, track applications on the Applications board, practice on Mock Interview, browse real listings on Job Market, then explore experimental ideas on Innovation Lab.',
+    steps: [
+      ['Dashboard', '/dashboard', 'Readiness score, the 10-lakh-vs-1-lakh reality strip and next best actions.'],
+      ['Profile', '/profile', 'Skills, education, experience, certifications, projects and verified external stats.'],
+      ['Job Fit', '/fit', 'Skill radar against your target role, best-fit role ranking, and real jobs that match it.'],
+      ['Resume Lab', '/resume', 'ATS readiness, likely rejection reasons, and which projects actually help you get hired.'],
+      ['Roadmap', '/roadmap', 'A milestone-based plan toward your target role that re-plans itself if you fall behind.'],
+      ['Applications', '/applications', 'A kanban tracker for every application, with status auto-updates.'],
+      ['Mock Interview', '/interview', 'Live rubric-scored practice, judged on relevance, depth, structure and clarity.'],
+      ['Job Market', '/market', 'Real job openings, hiring trends, layoffs and news.'],
+      ['Innovation Lab', '/lab', 'Experimental features: Career Pivot Finder, Reality Gap Explorer, Micro-Gigs and more.'],
+    ],
+  },
+  company: {
+    flow: 'End to end: check Overview for hiring funnel and time-to-shortlist KPIs, post a role on Job Postings with AI-suggested skills, open Talent Match to see candidates ranked by skill and project fit with identity blind-screened until shortlist, check Job Market for competitive context, then browse Innovation Lab for upcoming ideas.',
+    steps: [
+      ['Overview', '/company', 'Hiring funnel and time-to-shortlist KPIs.'],
+      ['Talent Match', '/talent', 'Candidates ranked by skill match and project-to-role alignment, with blind screening enforced server-side.'],
+      ['Job Postings', '/postings', 'Post a role with AI-suggested skill requirements, and manage micro-gigs.'],
+      ['Job Market', '/market', 'The same openings/trends view candidates see, for competitive awareness.'],
+      ['Innovation Lab', '/lab', 'Employer Skill Challenges and Campus Bridge concepts.'],
+    ],
+  },
 }
 
 export default function Layout() {
@@ -208,8 +256,14 @@ export default function Layout() {
 
       <Drawer open={guide} onClose={() => setGuide(false)} title={`Demo guide: ${user.name}`} width={420}>
         <p className="muted small mb16">{user.blurb}</p>
+        {(GUIDE[user.id] || GUIDE[user.role]) && (
+          <div className="card card-pad mb16" style={{ background: 'var(--bg-soft, var(--bg))', boxShadow: 'none' }}>
+            <div className="bold small mb4">The full walkthrough</div>
+            <div className="muted small">{(GUIDE[user.id] || GUIDE[user.role]).flow}</div>
+          </div>
+        )}
         <div className="stack gap12">
-          {(GUIDE[user.id] || []).map(([t, to, d], i) => (
+          {(GUIDE[user.id]?.steps || GUIDE[user.role]?.steps || []).map(([t, to, d], i) => (
             <div key={t} className="card card-pad" style={{ boxShadow: 'none' }}>
               <div className="row between">
                 <div className="bold">{i + 1}. {t}</div>
